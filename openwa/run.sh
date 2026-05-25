@@ -40,6 +40,11 @@ LOG_LEVEL="$(read_option log_level "info")"
 
 export API_KEY="owa_static_key_2026_development"
 export NODE_ENV=development
+
+# Force the static API key into the generated config file to prevent random generation
+mkdir -p /app/data
+echo "API_KEY=${API_KEY}" > /app/data/.env.generated
+echo "API_KEY=${API_KEY}" > /data/.env.generated 2>/dev/null || true
 export PORT=2785
 export LOG_LEVEL="${LOG_LEVEL}"
 
