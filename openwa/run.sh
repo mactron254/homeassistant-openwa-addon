@@ -38,6 +38,7 @@ PY
 API_MASTER_KEY="$(read_option api_master_key "")"
 LOG_LEVEL="$(read_option log_level "info")"
 OPENWA_API_KEY="$(read_option openwa_api_key "")"
+SESSION_ID="$(read_option session_id "")"
 
 export NODE_ENV=production
 
@@ -52,9 +53,7 @@ if [ ! -L "/app/data" ]; then
   ln -s "${OPENWA_DATA_DIR}" /app/data
 fi
 
-API_MASTER_KEY="$(read_option api_master_key "")"
-LOG_LEVEL="$(read_option log_level "info")"
-OPENWA_API_KEY="$(read_option openwa_api_key "")"
+# The options are already read above.
 
 export NODE_ENV=production
 
@@ -72,6 +71,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 if [ -n "$OPENWA_API_KEY" ]; then
   echo "  💡 Automated Setup:"
   echo "  The add-on will automatically manage your session."
+  echo "  🔑 Session ID: ${SESSION_ID:-"None (will be generated)"}"
   echo "  If this is your first time, please scan the QR code at:"
   echo "  http://homeassistant.local:2786/qr"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
