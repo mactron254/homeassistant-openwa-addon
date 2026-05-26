@@ -162,7 +162,8 @@ def start_session_if_needed() -> None:
     """Automatically create and start the configured session if needed."""
     # Wait for OpenWA to be ready before doing anything
     if not wait_for_openwa():
-        print("[OpenWA Helper] Warning: OpenWA API not healthy. Session auto-start may fail.")
+        print("[OpenWA Helper] OpenWA API not healthy. Skipping session auto-start.")
+        return
 
     options = load_options()
     api_key = options.get("openwa_api_key", "")

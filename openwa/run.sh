@@ -103,6 +103,31 @@ export PLUGINS_DIR="${OPENWA_DATA_DIR}/plugins"
 
 export API_MASTER_KEY="${API_MASTER_KEY}"
 
+echo "[OpenWA Add-on] Starting OpenWA API on port 2785..."
+echo "[OpenWA Add-on] Data directory: ${OPENWA_DATA_DIR}"
+
+cd /app 2>/dev/null || true
+
+if [ -f "/app/dist/main.js" ]; then
+  node /app/dist/main.js &
+  OPENWA_PID=$!
+elif [ -f "/app/dist/src/main.js" ]; then
+  node /app/dist/src/main.js &
+  OPENWA_PID=$!
+elif [ -f "dist/main.js" ]; then
+  node dist/main.js &
+  OPENWA_PID=$!
+elif [ -f "dist/src/main.js" ]; then
+  node dist/src/main.js &
+  OPENWA_PID=$!
+elif command -v npm >/dev/null 2>&1; then
+  npm run start:prod &
+  OPENWA_PID=$!
+else
+  echo "[OpenWA Add-on] Could not find OpenWA start command."
+  exit 1
+fi
+
 echo "[OpenWA Add-on] Starting helper server on port 2786..."
 python3 /usr/local/bin/helper_server.py &
 HELPER_PID="$!"
@@ -110,34 +135,8 @@ HELPER_PID="$!"
 cleanup() {
   echo "[OpenWA Add-on] Stopping helper server..."
   kill "${HELPER_PID}" 2>/dev/null || true
+  echo "[OpenWA Add-on] Stopping OpenWA API..."
+  kill "${OPENWA_PID}" 2>/dev/null || true
 }
 
 trap cleanup EXIT
-
-echo "[OpenWA Add-on] Starting OpenWA API on port 2785..."
-echo "[OpenWA Add-on] Data directory: ${OPENWA_DATA_DIR}"
-
-cd /app 2>/dev/null || true
-
-if [ -f "/app/dist/main.js" ]; then
-  exec node /app/dist/main.js
-fi
-
-if [ -f "/app/dist/src/main.js" ]; then
-  exec node /app/dist/src/main.js
-fi
-
-if [ -f "dist/main.js" ]; then
-  exec node dist/main.js
-fi
-
-if [ -f "dist/src/main.js" ]; then
-  exec node dist/src/main.js
-fi
-
-if command -v npm >/dev/null 2>&1; then
-  exec npm run start:prod
-fi
-
-echo "[OpenWA Add-on] Could not find OpenWA start command."
-exit 1
