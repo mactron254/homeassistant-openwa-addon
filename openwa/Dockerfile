@@ -1,20 +1,25 @@
-ARG BUILD_FROM=ghcr.io/rmyndharis/openwa:latest
+ARG BUILD_FROM=ghcr.io/rmyndharis/openwa:v0.7.2
 FROM ${BUILD_FROM}
 
 USER root
 
+ENTRYPOINT []
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-      python3 \
       ca-certificates \
       curl \
+      ffmpeg \
       procps \
     && rm -rf /var/lib/apt/lists/*
 
 COPY run.sh /run.sh
-COPY helper_server.py /usr/local/bin/helper_server.py
+COPY bot /opt/openwa-bot
 
 RUN chmod a+x /run.sh \
-    && chmod a+x /usr/local/bin/helper_server.py
+    && corepack enable \
+    && corepack prepare pnpm@11.0.0 --activate \
+    && cd /opt/openwa-bot \
+    && pnpm install --prod --frozen-lockfile
 
 CMD ["/run.sh"]

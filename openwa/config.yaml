@@ -1,15 +1,17 @@
-name: OpenWA
-version: "0.2.0"
+name: OpenWA Bot ES
+version: "0.3.0"
 slug: openwa
-description: Self-hosted OpenWA WhatsApp API gateway with Home Assistant helper endpoints
-url: https://github.com/nomi25home/homeassistant-openwa-addon
+description: OpenWA WhatsApp gateway with Spanish Home Assistant bot, Groq chat, and voice transcription
+url: https://github.com/mactron254/homeassistant-openwa-addon
 arch:
   - amd64
+  - aarch64
 
 startup: application
 boot: auto
 init: false
 ingress: false
+homeassistant_api: true
 
 ports:
   2785/tcp: 2785
@@ -26,21 +28,97 @@ map:
     read_only: false
 
 options:
-  api_master_key: "CHANGE_ME_TO_A_LONG_RANDOM_SECRET"
+  api_master_key: ""
   openwa_api_key: ""
   session_id: ""
+  openwa_image: "ghcr.io/rmyndharis/openwa:v0.7.2"
   log_level: "info"
+  engine_type: "baileys"
+  allowed_senders:
+    - "15551234567@c.us"
+  groq_plan: "free"
+  groq_api_key: ""
+  groq_chat_model: "llama-3.1-8b-instant"
+  groq_quality_model: "llama-3.3-70b-versatile"
+  groq_chat_rpm: 30
+  groq_chat_rpd: 14400
+  groq_chat_tpm: 6000
+  groq_chat_tpd: 500000
+  groq_quality_rpm: 30
+  groq_quality_rpd: 1000
+  groq_quality_tpm: 12000
+  groq_quality_tpd: 100000
+  groq_voice_model: "whisper-large-v3-turbo"
+  groq_voice_rpm: 20
+  groq_voice_rpd: 2000
+  groq_voice_ash: 7200
+  groq_voice_asd: 28800
+  max_audio_seconds: 120
+  chunk_audio: false
+  critical_confirmation_timeout_seconds: 300
+  ha_sensors:
+    - name: "solar"
+      entity_id: "sensor.solar_power"
+    - name: "bateria"
+      entity_id: "sensor.battery_power"
+    - name: "cargador"
+      entity_id: "sensor.ev_charger_status"
+  ha_scripts:
+    - name: "carga_rapida"
+      entity_id: "script.carga_rapida"
+      critical: true
+    - name: "activar_cargador"
+      entity_id: "script.activar_cargador"
+      critical: true
+    - name: "parar_cargador"
+      entity_id: "script.parar_cargador"
+      critical: true
+    - name: "modo_evcc"
+      entity_id: "script.modo_evcc"
+      critical: true
+    - name: "modo_v2c"
+      entity_id: "script.modo_v2c"
+      critical: true
   recipients:
     - name: "primary"
       chat_id: "15551234567@c.us"
-    - name: "secondary"
-      chat_id: "15557654321@c.us"
 
 schema:
-  api_master_key: str
-  openwa_api_key: str
-  session_id: str
+  api_master_key: password?
+  openwa_api_key: password?
+  session_id: str?
+  openwa_image: str
   log_level: list(debug|info|warn|error)
+  engine_type: list(baileys|whatsapp-web.js)
+  allowed_senders:
+    - str
+  groq_plan: list(free|custom)
+  groq_api_key: password?
+  groq_chat_model: str
+  groq_quality_model: str
+  groq_chat_rpm: int(0,)
+  groq_chat_rpd: int(0,)
+  groq_chat_tpm: int(0,)
+  groq_chat_tpd: int(0,)
+  groq_quality_rpm: int(0,)
+  groq_quality_rpd: int(0,)
+  groq_quality_tpm: int(0,)
+  groq_quality_tpd: int(0,)
+  groq_voice_model: str
+  groq_voice_rpm: int(0,)
+  groq_voice_rpd: int(0,)
+  groq_voice_ash: int(0,)
+  groq_voice_asd: int(0,)
+  max_audio_seconds: int(1,)
+  chunk_audio: bool
+  critical_confirmation_timeout_seconds: int(30,)
+  ha_sensors:
+    - name: str
+      entity_id: str
+  ha_scripts:
+    - name: str
+      entity_id: str
+      critical: bool
   recipients:
     - name: str
       chat_id: str

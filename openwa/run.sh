@@ -3,112 +3,20 @@ set -euo pipefail
 
 OPTIONS_FILE="/data/options.json"
 OPENWA_DATA_DIR="/data/openwa"
-
-mkdir -p "${OPENWA_DATA_DIR}/sessions"
-mkdir -p "${OPENWA_DATA_DIR}/media"
-mkdir -p "${OPENWA_DATA_DIR}/plugins"
+BOT_DATA_DIR="/data/bot"
+BOT_DIR="/opt/openwa-bot"
 
 read_option() {
   local key="$1"
   local default_value="$2"
-
-  python3 - "$OPTIONS_FILE" "$key" "$default_value" <<'PY'
-import json
-import sys
-
-path = sys.argv[1]
-key = sys.argv[2]
-default_value = sys.argv[3]
-
-try:
-    with open(path, "r", encoding="utf-8") as file:
-        data = json.load(file)
-except Exception:
-    print(default_value)
-    raise SystemExit(0)
-
-value = data.get(key, default_value)
-if value is None:
-    value = default_value
-
-print(value)
-PY
+  node "${BOT_DIR}/src/read-option.js" "${OPTIONS_FILE}" "${key}" "${default_value}"
 }
 
-API_MASTER_KEY="$(read_option api_master_key "")"
-LOG_LEVEL="$(read_option log_level "info")"
-OPENWA_API_KEY="$(read_option openwa_api_key "")"
-SESSION_ID="$(read_option session_id "")"
-
-export NODE_ENV=production
-
-mkdir -p "${OPENWA_DATA_DIR}"
-
-# Persist OpenWA data across add-on restarts.
-if [ ! -L "/app/data" ]; then
-  mkdir -p /app
-  rm -rf /app/data
-  ln -s "${OPENWA_DATA_DIR}" /app/data
-fi
-
-# Ensure the native API uses the configured key.
-if [ -n "$OPENWA_API_KEY" ]; then
-  echo "API_KEY=${OPENWA_API_KEY}" > "${OPENWA_DATA_DIR}/.env.generated"
-fi
-
-export PORT=2785
-export LOG_LEVEL="${LOG_LEVEL}"
-
-export DATABASE_TYPE=sqlite
-export DATABASE_NAME="${OPENWA_DATA_DIR}/openwa.sqlite"
-export DATABASE_SYNCHRONIZE=false
-
-export ENGINE_TYPE=whatsapp-web.js
-export SESSION_DATA_PATH="${OPENWA_DATA_DIR}/sessions"
-export PUPPETEER_HEADLESS=true
-export PUPPETEER_ARGS="--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-gpu"
-
-export STORAGE_TYPE=local
-export STORAGE_LOCAL_PATH="${OPENWA_DATA_DIR}/media"
-
-export REDIS_ENABLED=false
-
-export WEBHOOK_TIMEOUT=10000
-export WEBHOOK_MAX_RETRIES=3
-export WEBHOOK_RETRY_DELAY=5000
-
-export RATE_LIMIT_TTL=60
-export RATE_LIMIT_MAX=100
-
-export PLUGINS_ENABLED=true
-export PLUGINS_DIR="${OPENWA_DATA_DIR}/plugins"
-
-export API_MASTER_KEY="${API_MASTER_KEY}"
-
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  🟢 OpenWA Home Assistant Add-on"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-if [ -n "$OPENWA_API_KEY" ]; then
-  echo "  💡 Automated Setup:"
-  echo "  The add-on will automatically manage your session."
-  echo "  🔑 Session ID: ${SESSION_ID:-None (will be generated)}"
-  echo "  If this is your first time, please scan the QR code at:"
-  echo "  http://homeassistant.local:2786/qr"
-else
-  echo "  ⚠️  openwa_api_key is not configured."
-  echo "  Set openwa_api_key in the add-on options before using QR/session features."
-fi
-
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
 cleanup() {
-  echo "[OpenWA Add-on] Stopping services..."
-
-  if [ -n "${HELPER_PID:-}" ]; then
-    kill "${HELPER_PID}" 2>/dev/null || true
+  echo "[OpenWA Bot ES] Stopping services..."
+  if [ -n "${BOT_PID:-}" ]; then
+    kill "${BOT_PID}" 2>/dev/null || true
   fi
-
   if [ -n "${OPENWA_PID:-}" ]; then
     kill "${OPENWA_PID}" 2>/dev/null || true
   fi
@@ -116,81 +24,103 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
-start_openwa() {
-  cd /app 2>/dev/null || true
+mkdir -p "${OPENWA_DATA_DIR}/sessions" "${OPENWA_DATA_DIR}/media" "${OPENWA_DATA_DIR}/plugins" "${OPENWA_DATA_DIR}/baileys"
+mkdir -p "${BOT_DATA_DIR}/tmp"
 
-  if [ -f "/app/dist/main.js" ]; then
-    node /app/dist/main.js &
-    OPENWA_PID="$!"
-    return 0
+if id openwa >/dev/null 2>&1; then
+  chown -R openwa:openwa "${OPENWA_DATA_DIR}" "${BOT_DATA_DIR}"
+fi
+
+if [ ! -L "/app/data" ]; then
+  mkdir -p /app
+  rm -rf /app/data
+  ln -s "${OPENWA_DATA_DIR}" /app/data
+fi
+
+API_MASTER_KEY="$(read_option api_master_key "")"
+OPENWA_API_KEY="$(read_option openwa_api_key "")"
+LOG_LEVEL="$(read_option log_level "info")"
+ENGINE_TYPE="$(read_option engine_type "baileys")"
+
+export NODE_ENV=production
+export PORT=2785
+export LOG_LEVEL="${LOG_LEVEL}"
+export DATABASE_TYPE=sqlite
+export DATABASE_NAME="/app/data/openwa.sqlite"
+export DATABASE_SYNCHRONIZE=false
+export MAIN_DATABASE_NAME="/app/data/main.sqlite"
+export ENGINE_TYPE="${ENGINE_TYPE}"
+export SESSION_DATA_PATH="/app/data/sessions"
+export BAILEYS_AUTH_DIR="/app/data/baileys"
+export PUPPETEER_HEADLESS=true
+export PUPPETEER_ARGS="--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-gpu"
+export STORAGE_TYPE=local
+export STORAGE_LOCAL_PATH="/app/data/media"
+export REDIS_ENABLED=false
+export QUEUE_ENABLED=false
+export WEBHOOK_TIMEOUT=10000
+export WEBHOOK_MAX_RETRIES=3
+export WEBHOOK_RETRY_DELAY=5000
+export RATE_LIMIT_SHORT_TTL=1000
+export RATE_LIMIT_SHORT_LIMIT=10
+export RATE_LIMIT_MEDIUM_TTL=60000
+export RATE_LIMIT_MEDIUM_LIMIT=100
+export RATE_LIMIT_LONG_TTL=3600000
+export RATE_LIMIT_LONG_LIMIT=1000
+export PLUGINS_ENABLED=true
+export PLUGINS_DIR="/app/data/plugins"
+export SSRF_ALLOWED_HOSTS="127.0.0.1,localhost"
+export BODY_SIZE_LIMIT="50mb"
+
+if [ -n "${API_MASTER_KEY}" ]; then
+  export API_MASTER_KEY
+fi
+
+if [ -n "${OPENWA_API_KEY}" ]; then
+  export API_MASTER_KEY="${OPENWA_API_KEY}"
+fi
+
+echo "[OpenWA Bot ES] Starting OpenWA API on port 2785"
+echo "[OpenWA Bot ES] Engine: ${ENGINE_TYPE}"
+echo "[OpenWA Bot ES] Data: ${OPENWA_DATA_DIR}"
+
+cd /app
+/usr/local/bin/docker-entrypoint.sh node dist/main &
+OPENWA_PID="$!"
+
+echo "[OpenWA Bot ES] Waiting for OpenWA readiness..."
+OPENWA_READY=0
+for _ in $(seq 1 60); do
+  if curl -fsS "http://127.0.0.1:2785/api/health/ready" >/dev/null 2>&1 || curl -fsS "http://127.0.0.1:2785/api/health" >/dev/null 2>&1; then
+    echo "[OpenWA Bot ES] OpenWA is ready."
+    OPENWA_READY=1
+    break
   fi
-
-  if [ -f "/app/dist/src/main.js" ]; then
-    node /app/dist/src/main.js &
-    OPENWA_PID="$!"
-    return 0
+  if ! kill -0 "${OPENWA_PID}" 2>/dev/null; then
+    echo "[OpenWA Bot ES] OpenWA exited before ready."
+    wait "${OPENWA_PID}" || true
+    exit 1
   fi
+  sleep 2
+done
 
-  if [ -f "dist/main.js" ]; then
-    node dist/main.js &
-    OPENWA_PID="$!"
-    return 0
-  fi
-
-  if [ -f "dist/src/main.js" ]; then
-    node dist/src/main.js &
-    OPENWA_PID="$!"
-    return 0
-  fi
-
-  if command -v npm >/dev/null 2>&1; then
-    npm run start:prod &
-    OPENWA_PID="$!"
-    return 0
-  fi
-
-  echo "[OpenWA Add-on] Could not find OpenWA start command."
-  return 1
-}
-
-wait_for_openwa() {
-  local timeout="${1:-90}"
-  local elapsed=0
-
-  echo "[OpenWA Add-on] Waiting for OpenWA API on port 2785..."
-
-  while [ "$elapsed" -lt "$timeout" ]; do
-    if curl -fsS "http://127.0.0.1:2785/api/health" >/dev/null 2>&1; then
-      echo "[OpenWA Add-on] OpenWA API is healthy."
-      return 0
-    fi
-
-    if ! kill -0 "${OPENWA_PID}" 2>/dev/null; then
-      echo "[OpenWA Add-on] OpenWA process exited before becoming healthy."
-      return 1
-    fi
-
-    sleep 2
-    elapsed=$((elapsed + 2))
-  done
-
-  echo "[OpenWA Add-on] Timed out waiting for OpenWA API."
-  return 1
-}
-
-echo "[OpenWA Add-on] Starting OpenWA API on port 2785..."
-echo "[OpenWA Add-on] Data directory: ${OPENWA_DATA_DIR}"
-
-start_openwa
-
-wait_for_openwa 90 || {
-  echo "[OpenWA Add-on] OpenWA did not become healthy. Check logs above."
+if [ "${OPENWA_READY}" != "1" ]; then
+  echo "[OpenWA Bot ES] Timed out waiting for OpenWA readiness."
   wait "${OPENWA_PID}" || true
   exit 1
-}
+fi
 
-echo "[OpenWA Add-on] Starting helper server on port 2786..."
-python3 /usr/local/bin/helper_server.py &
-HELPER_PID="$!"
+if ! kill -0 "${OPENWA_PID}" 2>/dev/null; then
+  echo "[OpenWA Bot ES] OpenWA process is not running."
+  exit 1
+fi
 
-wait -n "${OPENWA_PID}" "${HELPER_PID}"
+echo "[OpenWA Bot ES] Starting bot helper on port 2786"
+if command -v gosu >/dev/null 2>&1 && id openwa >/dev/null 2>&1; then
+  gosu openwa node "${BOT_DIR}/src/server.js" &
+else
+  node "${BOT_DIR}/src/server.js" &
+fi
+BOT_PID="$!"
+
+wait -n "${OPENWA_PID}" "${BOT_PID}"
