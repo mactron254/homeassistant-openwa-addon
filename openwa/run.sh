@@ -42,9 +42,7 @@ OPENWA_API_KEY="$(read_option openwa_api_key "")"
 LOG_LEVEL="$(read_option log_level "info")"
 ENGINE_TYPE="$(read_option engine_type "baileys")"
 
-# OpenWA's production CSP adds upgrade-insecure-requests, which can blank the
-# dashboard when served over plain HTTP by Home Assistant add-ons.
-export NODE_ENV=development
+export NODE_ENV=production
 export PORT=2785
 export LOG_LEVEL="${LOG_LEVEL}"
 export DATABASE_TYPE=sqlite
