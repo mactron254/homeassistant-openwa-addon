@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- Added Spanish Home Assistant WhatsApp bot helper.
+- Added Groq chat and Whisper voice transcription with local free organization rate limits.
+- Added `ENTRYPOINT []` and root-controlled startup for `/data/openwa` permissions.
+- Defaulted WhatsApp engine to `baileys` with `whatsapp-web.js` fallback.
+- Pinned OpenWA image to `ghcr.io/rmyndharis/openwa:v0.7.2`.
+
 ## 0.2.0
 
 - Promoted the OpenWA Home Assistant add-on to version 0.2.0.

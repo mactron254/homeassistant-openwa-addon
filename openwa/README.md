@@ -1,37 +1,27 @@
-# OpenWA Home Assistant Add-on Repository
+# OpenWA Bot ES Add-on
 
-Home Assistant add-on repository for running a self-hosted OpenWA WhatsApp API gateway.
+OpenWA WhatsApp gateway with a Spanish Home Assistant bot, Groq chat, and Groq Whisper voice support.
 
-## Add-ons
+## Services
 
-### OpenWA
+- OpenWA API and dashboard: `2785`
+- Bot helper API and simple status UI: `2786`
 
-Runs OpenWA inside Home Assistant OS/Supervised and exposes:
+## Bot
 
-- OpenWA API on port `2785`
-- Helper API/UI on port `2786`
+- Only numbers in `allowed_senders` are processed.
+- Text menu is always available.
+- Groq is optional. If no API key exists, fixed menus still work.
+- Voice notes are transcribed with `whisper-large-v3-turbo` and `language=es`.
+- Critical scripts require a literal `SI` confirmation.
 
-The helper API provides simplified Home Assistant-friendly endpoints. All helper endpoints require the `api_master_key` to be passed in the `X-API-Key` header:
+## Groq Plans
 
-- `GET /`
-- `GET /health`
-- `GET /sessions`
-- `GET /qr`
-- `POST /send`
-- `POST /send/primary`
-- `POST /send/secondary`
+- `free`: default, with your current organization limits.
+- `custom`: exact limits copied from Groq console.
 
-## Installation
-
-1. Open Home Assistant.
-2. Go to **Settings → Add-ons → Add-on Store**.
-3. Open the three-dot menu.
-4. Choose **Repositories**.
-5. Add this repository URL.
-6. Install the **OpenWA** add-on.
-7. Configure the add-on options.
-8. Start the add-on.
+When local limits are reached, the bot answers: `Limite IA alcanzado, usa menu fijo`.
 
 ## Security
 
-Do not expose OpenWA directly to the public internet without proper authentication, TLS, and network controls.
+Groq only classifies intent or drafts text. Home Assistant actions run only through configured sensor/script allowlists.

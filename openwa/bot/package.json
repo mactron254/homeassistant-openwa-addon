@@ -1,0 +1,13 @@
+{
+  "name": "openwa-ha-bot-es",
+  "version": "0.3.0",
+  "private": true,
+  "type": "commonjs",
+  "packageManager": "pnpm@11.0.0",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
