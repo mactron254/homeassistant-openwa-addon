@@ -5,7 +5,7 @@ OpenWA WhatsApp gateway with a Spanish Home Assistant bot, Groq chat, and Groq W
 ## Services
 
 - OpenWA API and dashboard: `2785`
-- Bot helper API and simple status UI: `2786`
+- Bot helper API: `2786`
 
 ## Bot
 

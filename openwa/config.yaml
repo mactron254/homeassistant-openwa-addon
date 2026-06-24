@@ -18,10 +18,10 @@ ports:
   2786/tcp: 2786
 
 ports_description:
-  2785/tcp: OpenWA native API
-  2786/tcp: OpenWA helper API and status UI
+  2785/tcp: OpenWA dashboard and native API
+  2786/tcp: OpenWA helper API
 
-webui: "http://[HOST]:[PORT:2786]/"
+webui: "http://[HOST]:[PORT:2785]/"
 
 map:
   - type: addon_config

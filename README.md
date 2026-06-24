@@ -5,7 +5,7 @@ Home Assistant add-on repository for OpenWA plus a Spanish WhatsApp bot for Home
 ## Overview
 
 - OpenWA API and dashboard on port `2785`.
-- Bot helper API and simple status UI on port `2786`.
+- Bot helper API on port `2786`.
 - Text menus always work without Groq.
 - Groq is optional and never executes Home Assistant actions directly.
 - Groq defaults to your current free organization limits, with `custom` available for per-project overrides.
@@ -17,7 +17,7 @@ Home Assistant add-on repository for OpenWA plus a Spanish WhatsApp bot for Home
 2. Install **OpenWA Bot ES**.
 3. Configure `allowed_senders`, `ha_sensors`, `ha_scripts`, and optional `groq_api_key`.
 4. Start the add-on.
-5. Open `http://homeassistant.local:2786/qr` and link WhatsApp.
+5. Open the add-on Web UI or `http://homeassistant.local:2785/` and link WhatsApp from the OpenWA dashboard.
 
 ## Helper API
 
