@@ -10,6 +10,7 @@ Home Assistant add-on repository for OpenWA plus a Spanish WhatsApp bot for Home
 - Groq is optional and never executes Home Assistant actions directly.
 - Groq defaults to your current free organization limits, with `custom` available for per-project overrides.
 - Home Assistant control uses allowlisted domains/entities, not one script per action.
+- Natural Spanish questions can read HA states, for example `como va la energia hoy`, `que estan generando las placas`, or `que luces estan encendidas`.
 - Critical Home Assistant domains require literal `SI` confirmation.
 
 ## Install

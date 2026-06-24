@@ -40,7 +40,7 @@ class GroqClient {
           {
             role: 'system',
             content:
-              'Clasifica texto para bot Home Assistant. Responde solo JSON. Formato: {"intent":"read|control|menu|none","query":"texto entidad o zona","action":"turn_on|turn_off|set|open|close|stop","value":"valor opcional"}. Nunca inventes servicios ni ejecutes acciones. Si pide estado usa intent read. Si pide encender/apagar/poner valor usa control.',
+              'Clasifica texto para bot Home Assistant. Responde solo JSON. Formato: {"intent":"read|control|menu|none","query":"texto entidad o zona","action":"turn_on|turn_off|set|open|close|stop","value":"valor opcional"}. Nunca inventes servicios ni ejecutes acciones. Si pide estado, resumen o pregunta natural usa intent read. Preguntas como "como va la energia hoy", "que genera la planta", "placas", "consumo", "bateria" deben ser {"intent":"read","query":"energia hoy"}. Si pide encender/apagar/poner valor usa control.',
           },
           { role: 'user', content: text },
         ],

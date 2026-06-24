@@ -145,11 +145,32 @@ class HomeAssistantBot {
 
   async reportHome(query = '') {
     const states = await this.allowedStates('read');
+    if (isEnergyOverviewQuery(query)) return this.reportEnergy(states, query);
     const matches = this.findStateMatches(states, query);
     if (!matches.length) return `No encuentro entidades permitidas para: ${query || 'casa'}.`;
     const filtered = filterReadMatches(matches, query).slice(0, 12);
     if (!filtered.length) return `No hay resultados para: ${query}.`;
     return filtered.map(formatState).join('\n');
+  }
+
+  reportEnergy(states, query = '') {
+    const energyStates = states
+      .filter(isEnergyState)
+      .map(state => ({ state, score: energyScore(state, query) }))
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10)
+      .map(item => item.state);
+
+    if (!energyStates.length) {
+      return 'No encuentro sensores de energia permitidos. Revisa dominios de lectura o nombres de sensores HA.';
+    }
+
+    const lines = ['Energia ahora:'];
+    for (const group of energyGroups(energyStates)) {
+      lines.push(`${group.label}: ${group.states.map(formatState).join(' | ')}`);
+    }
+    return lines.join('\n');
   }
 
   async executeHomeControl(route, context = {}) {
@@ -280,6 +301,14 @@ class HomeAssistantBot {
   }
 }
 
+function isEnergyOverviewQuery(query) {
+  const value = normalizeSearchText(query);
+  if (/\b(energia|planta|placa|placas|fotovoltaic|produccion|generando|genera|consume|consumo|bateria|red)\b/.test(value)) {
+    return true;
+  }
+  return value.includes('solar') && /\b(hoy|ahora|va|generando|genera|produce|produccion)\b/.test(value);
+}
+
 function domainFromEntity(entityId) {
   return String(entityId || '').split('.')[0];
 }
@@ -291,6 +320,50 @@ function friendlyName(state) {
 function formatState(state) {
   const unit = state.attributes?.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : '';
   return `${friendlyName(state)}: ${state.state}${unit}`;
+}
+
+function isEnergyState(state) {
+  if (!['sensor', 'binary_sensor'].includes(domainFromEntity(state.entity_id))) return false;
+  return energyScore(state, '') > 0;
+}
+
+function energyScore(state, query = '') {
+  const text = normalizeSearchText(`${state.entity_id} ${friendlyName(state)} ${state.attributes?.device_class || ''} ${state.attributes?.unit_of_measurement || ''}`);
+  const queryText = normalizeSearchText(query);
+  let score = 0;
+  for (const token of ENERGY_TOKENS) {
+    if (text.includes(token)) score += 4;
+  }
+  if (/\b(w|kw|kwh|wh)\b/.test(text)) score += 2;
+  if (text.includes('power') || text.includes('energy')) score += 2;
+  if (queryText.includes('hoy') && (text.includes('today') || text.includes('daily') || text.includes('dia') || text.includes('diaria'))) score += 6;
+  return score;
+}
+
+function energyGroups(states) {
+  const buckets = [
+    { label: 'Planta solar', test: state => hasEnergyWord(state, ['solar', 'placa', 'pv', 'fotovoltaic', 'produccion', 'generated', 'generation']) },
+    { label: 'Consumo', test: state => hasEnergyWord(state, ['consumo', 'consume', 'load', 'casa', 'home']) },
+    { label: 'Bateria', test: state => hasEnergyWord(state, ['bateria', 'battery', 'soc']) },
+    { label: 'Red', test: state => hasEnergyWord(state, ['red', 'grid', 'import', 'export']) },
+  ];
+  const used = new Set();
+  const groups = [];
+  for (const bucket of buckets) {
+    const matches = states.filter(state => !used.has(state.entity_id) && bucket.test(state)).slice(0, 3);
+    if (matches.length) {
+      matches.forEach(state => used.add(state.entity_id));
+      groups.push({ label: bucket.label, states: matches });
+    }
+  }
+  const others = states.filter(state => !used.has(state.entity_id)).slice(0, 3);
+  if (others.length) groups.push({ label: 'Otros', states: others });
+  return groups;
+}
+
+function hasEnergyWord(state, words) {
+  const text = normalizeSearchText(`${state.entity_id} ${friendlyName(state)} ${state.attributes?.device_class || ''}`);
+  return words.some(word => text.includes(word));
 }
 
 function filterReadMatches(states, query) {
@@ -401,5 +474,6 @@ function parsePercent(value) {
 }
 
 const STOP_WORDS = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'un', 'una', 'que', 'esta', 'estan', 'hay', 'casa']);
+const ENERGY_TOKENS = ['energia', 'energy', 'solar', 'placa', 'planta', 'fotovoltaic', 'produccion', 'generation', 'generated', 'consumo', 'consume', 'bateria', 'battery', 'grid', 'red', 'power'];
 
 module.exports = { HomeAssistantBot };

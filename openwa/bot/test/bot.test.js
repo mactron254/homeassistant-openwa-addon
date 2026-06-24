@@ -144,6 +144,26 @@ test('reads allowed entity states', async () => {
   assert.equal(await bot.handleMessage({ from: '34600111222@c.us', body: 'estado de solar' }), 'Solar: 4200 W');
 });
 
+test('answers natural energy questions with grouped HA sensors', async () => {
+  ha.getStates = async () => [
+    { entity_id: 'sensor.solar_power', state: '4200', attributes: { friendly_name: 'Potencia placas', unit_of_measurement: 'W', device_class: 'power' } },
+    { entity_id: 'sensor.solar_energy_today', state: '18.4', attributes: { friendly_name: 'Produccion solar hoy', unit_of_measurement: 'kWh', device_class: 'energy' } },
+    { entity_id: 'sensor.home_consumption', state: '1200', attributes: { friendly_name: 'Consumo casa', unit_of_measurement: 'W', device_class: 'power' } },
+    { entity_id: 'sensor.battery_soc', state: '76', attributes: { friendly_name: 'Bateria', unit_of_measurement: '%' } },
+    { entity_id: 'sensor.temperature', state: '21', attributes: { friendly_name: 'Temperatura salon', unit_of_measurement: 'C' } },
+  ];
+
+  const bot = new HomeAssistantBot({ options: baseOptions(), openwa: {}, groq: { enabled: () => false } });
+  const response = await bot.handleMessage({ from: '34600111222@c.us', body: 'como va la energia hoy' });
+
+  assert.match(response, /^Energia ahora:/);
+  assert.match(response, /Planta solar: .*Potencia placas: 4200 W/);
+  assert.match(response, /Produccion solar hoy: 18.4 kWh/);
+  assert.match(response, /Consumo: Consumo casa: 1200 W/);
+  assert.match(response, /Bateria: Bateria: 76 %/);
+  assert.doesNotMatch(response, /Temperatura salon/);
+});
+
 function baseOptions() {
   return {
     critical_confirmation_timeout_seconds: 300,

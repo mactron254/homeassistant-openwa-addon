@@ -14,6 +14,7 @@ OpenWA WhatsApp gateway with a Spanish Home Assistant bot, Groq chat, and Groq W
 - Groq is optional. If no API key exists, fixed menus still work.
 - Voice notes are transcribed with `whisper-large-v3-turbo` and `language=es`.
 - Home Assistant control uses allowlisted domains/entities.
+- Natural Spanish energy questions are grouped from allowed HA sensors, for example `como va la energia hoy` or `que genera la planta`.
 - Critical domains require a literal `SI` confirmation.
 
 ## Groq Profiles

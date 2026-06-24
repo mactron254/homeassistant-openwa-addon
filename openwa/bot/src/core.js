@@ -82,9 +82,10 @@ function routeText(text) {
 
 function parseHomeCommand(text) {
   const value = normalizeSearchText(text);
+  if (isEnergyQuestion(value)) return { kind: 'home_read', query: value };
   const readMatch = value.match(/^(estado|consulta|dime|muestra)( de| del| la| el)? (?<query>.+)$/);
   if (readMatch?.groups?.query) return { kind: 'home_read', query: readMatch.groups.query };
-  if (value.startsWith('que ') || value.startsWith('cuales ') || value.startsWith('cuantas ')) {
+  if (value.startsWith('que ') || value.startsWith('como ') || value.startsWith('cuales ') || value.startsWith('cuantas ')) {
     return { kind: 'home_read', query: value };
   }
 
@@ -99,6 +100,10 @@ function parseHomeCommand(text) {
     return { kind: 'home_control', action: 'set', query: setValue.groups.query, value: setValue.groups.value };
   }
   return null;
+}
+
+function isEnergyQuestion(value) {
+  return /\b(energia|energetic|solar|placa|placas|planta|fotovoltaic|produccion|generando|genera|consume|consumo|bateria|red)\b/.test(value);
 }
 
 function actionFromVerb(verb) {
@@ -209,6 +214,7 @@ module.exports = {
   menuText,
   routeText,
   parseHomeCommand,
+  isEnergyQuestion,
   findScript,
   findSensors,
   normalizeName,
