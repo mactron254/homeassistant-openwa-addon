@@ -1,5 +1,5 @@
 name: OpenWA Bot ES
-version: "0.3.0"
+version: "0.4.0"
 slug: openwa
 description: OpenWA WhatsApp gateway with Spanish Home Assistant bot, Groq chat, and voice transcription
 url: https://github.com/mactron254/homeassistant-openwa-addon
@@ -34,54 +34,71 @@ options:
   openwa_image: "ghcr.io/rmyndharis/openwa:latest"
   log_level: "info"
   engine_type: "baileys"
-  allowed_senders:
-    - "15551234567@c.us"
-  groq_plan: "free"
-  groq_api_key: ""
-  groq_chat_model: "llama-3.1-8b-instant"
-  groq_quality_model: "llama-3.3-70b-versatile"
-  groq_chat_rpm: 30
-  groq_chat_rpd: 14400
-  groq_chat_tpm: 6000
-  groq_chat_tpd: 500000
-  groq_quality_rpm: 30
-  groq_quality_rpd: 1000
-  groq_quality_tpm: 12000
-  groq_quality_tpd: 100000
-  groq_voice_model: "whisper-large-v3-turbo"
-  groq_voice_rpm: 20
-  groq_voice_rpd: 2000
-  groq_voice_ash: 7200
-  groq_voice_asd: 28800
-  max_audio_seconds: 120
-  chunk_audio: false
-  critical_confirmation_timeout_seconds: 300
-  ha_sensors:
-    - name: "solar"
-      entity_id: "sensor.solar_power"
-    - name: "bateria"
-      entity_id: "sensor.battery_power"
-    - name: "cargador"
-      entity_id: "sensor.ev_charger_status"
-  ha_scripts:
-    - name: "carga_rapida"
-      entity_id: "script.carga_rapida"
-      critical: true
-    - name: "activar_cargador"
-      entity_id: "script.activar_cargador"
-      critical: true
-    - name: "parar_cargador"
-      entity_id: "script.parar_cargador"
-      critical: true
-    - name: "modo_evcc"
-      entity_id: "script.modo_evcc"
-      critical: true
-    - name: "modo_v2c"
-      entity_id: "script.modo_v2c"
-      critical: true
-  recipients:
-    - name: "primary"
-      chat_id: "15551234567@c.us"
+  whatsapp:
+    allowed_senders:
+      - "15551234567@c.us"
+    recipients:
+      primary: "15551234567@c.us"
+  groq:
+    api_key: ""
+    profile: "free_balanced"
+    chat_model: "llama-3.1-8b-instant"
+    quality_model: "llama-3.3-70b-versatile"
+    voice_model: "whisper-large-v3-turbo"
+    max_audio_seconds: 120
+    chunk_audio: false
+    custom_limits:
+      chat:
+        rpm: 30
+        rpd: 14400
+        tpm: 6000
+        tpd: 500000
+      quality:
+        rpm: 30
+        rpd: 1000
+        tpm: 12000
+        tpd: 100000
+      voice:
+        rpm: 20
+        rpd: 2000
+        ash: 7200
+        asd: 28800
+  home_assistant:
+    read:
+      mode: "allowed_domains"
+      domains:
+        - sensor
+        - binary_sensor
+        - switch
+        - light
+        - climate
+        - cover
+        - number
+        - input_number
+        - select
+        - input_select
+    control:
+      domains:
+        switch: true
+        light: true
+        cover: true
+        climate: true
+        number: true
+        input_number: true
+        select: true
+        input_select: true
+        fan: true
+      entities:
+        deny: []
+        allow: []
+    critical:
+      require_confirmation: true
+      timeout_seconds: 300
+      always_confirm_domains:
+        - lock
+        - alarm_control_panel
+        - cover
+        - climate
 
 schema:
   api_master_key: password?
@@ -90,35 +107,58 @@ schema:
   openwa_image: str
   log_level: list(debug|info|warn|error)
   engine_type: list(baileys|whatsapp-web.js)
-  allowed_senders:
-    - str
-  groq_plan: list(free|custom)
-  groq_api_key: password?
-  groq_chat_model: str
-  groq_quality_model: str
-  groq_chat_rpm: int(0,)
-  groq_chat_rpd: int(0,)
-  groq_chat_tpm: int(0,)
-  groq_chat_tpd: int(0,)
-  groq_quality_rpm: int(0,)
-  groq_quality_rpd: int(0,)
-  groq_quality_tpm: int(0,)
-  groq_quality_tpd: int(0,)
-  groq_voice_model: str
-  groq_voice_rpm: int(0,)
-  groq_voice_rpd: int(0,)
-  groq_voice_ash: int(0,)
-  groq_voice_asd: int(0,)
-  max_audio_seconds: int(1,)
-  chunk_audio: bool
-  critical_confirmation_timeout_seconds: int(30,)
-  ha_sensors:
-    - name: str
-      entity_id: str
-  ha_scripts:
-    - name: str
-      entity_id: str
-      critical: bool
-  recipients:
-    - name: str
-      chat_id: str
+  whatsapp:
+    allowed_senders:
+      - str
+    recipients:
+      primary: str
+  groq:
+    api_key: password?
+    profile: list(disabled|free_balanced|free_quality|custom)
+    chat_model: str
+    quality_model: str
+    voice_model: str
+    max_audio_seconds: int(1,)
+    chunk_audio: bool
+    custom_limits:
+      chat:
+        rpm: int(0,)
+        rpd: int(0,)
+        tpm: int(0,)
+        tpd: int(0,)
+      quality:
+        rpm: int(0,)
+        rpd: int(0,)
+        tpm: int(0,)
+        tpd: int(0,)
+      voice:
+        rpm: int(0,)
+        rpd: int(0,)
+        ash: int(0,)
+        asd: int(0,)
+  home_assistant:
+    read:
+      mode: list(allowed_domains)
+      domains:
+        - str
+    control:
+      domains:
+        switch: bool
+        light: bool
+        cover: bool
+        climate: bool
+        number: bool
+        input_number: bool
+        select: bool
+        input_select: bool
+        fan: bool
+      entities:
+        deny:
+          - str
+        allow:
+          - str
+    critical:
+      require_confirmation: bool
+      timeout_seconds: int(30,)
+      always_confirm_domains:
+        - str

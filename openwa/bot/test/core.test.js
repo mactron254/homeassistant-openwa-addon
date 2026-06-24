@@ -43,6 +43,11 @@ test('free Groq plan uses current organization limits per model', () => {
   assert.deepEqual(qwen, FREE_CHAT_LIMITS_BY_MODEL['qwen/qwen3-32b']);
 });
 
+test('free_balanced Groq profile uses current organization limits per model', () => {
+  const qwen = groqLimits({ groq_profile: 'free_balanced', groq_chat_model: 'qwen/qwen3-32b' }, 'chat');
+  assert.deepEqual(qwen, FREE_CHAT_LIMITS_BY_MODEL['qwen/qwen3-32b']);
+});
+
 test('custom Groq plan uses configured limits', () => {
   const limits = groqLimits(
     {

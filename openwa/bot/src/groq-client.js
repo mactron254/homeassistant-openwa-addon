@@ -12,14 +12,15 @@ class GroqClient {
   }
 
   enabled() {
-    return Boolean(this.options.groq_api_key);
+    return Boolean(this.options.groq_api_key) && this.options.groq_profile !== 'disabled';
   }
 
   async classify(text) {
     if (!this.enabled()) return { action: 'menu' };
-    const model = this.options.groq_chat_model;
+    const useQuality = this.options.groq_profile === 'free_quality';
+    const model = useQuality ? this.options.groq_quality_model : this.options.groq_chat_model;
     const tokens = estimateTokens(text) + 200;
-    const allowed = this.rateLimiter.checkAndReserve(`chat:${model}`, groqLimits(this.options, 'chat'), {
+    const allowed = this.rateLimiter.checkAndReserve(`chat:${model}`, groqLimits(this.options, useQuality ? 'quality' : 'chat'), {
       requests: 1,
       tokens,
     });
@@ -39,7 +40,7 @@ class GroqClient {
           {
             role: 'system',
             content:
-              'Clasifica el texto para un bot de Home Assistant. Responde solo JSON con action: menu, solar_status, charger_status, carga_rapida, activar_cargador, parar_cargador, modo_evcc, modo_v2c, none. Nunca ejecutes acciones.',
+              'Clasifica texto para bot Home Assistant. Responde solo JSON. Formato: {"intent":"read|control|menu|none","query":"texto entidad o zona","action":"turn_on|turn_off|set|open|close|stop","value":"valor opcional"}. Nunca inventes servicios ni ejecutes acciones. Si pide estado usa intent read. Si pide encender/apagar/poner valor usa control.',
           },
           { role: 'user', content: text },
         ],

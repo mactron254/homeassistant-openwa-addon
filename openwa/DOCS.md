@@ -18,19 +18,24 @@ Protected helper requests must include this key in `X-API-Key`.
 
 Default is `baileys`. Use `whatsapp-web.js` if Baileys has a compatibility issue.
 
-### `allowed_senders`
+### `whatsapp`
 
-List of WhatsApp JIDs or phone numbers allowed to use the bot. Audio is processed only for these senders.
+`whatsapp.allowed_senders` lists WhatsApp JIDs or phone numbers allowed to use the bot. Audio is processed only for these senders.
+`whatsapp.recipients.primary` is the default named recipient for helper send APIs.
 
-### `groq_plan`
+### `groq`
 
-- `free`: default. Uses your current Groq free organization limits for known models.
-- `custom`: exact project limits copied from Groq console.
+Profiles:
+
+- `disabled`: no AI, fixed menu only.
+- `free_balanced`: default. Uses current Groq free organization limits for known models.
+- `free_quality`: uses the quality model for intent classification.
+- `custom`: exact project limits copied from Groq console through `groq.custom_limits`.
 
 ### Groq Limits
 
-Configure chat limits with `groq_chat_*` and quality model limits with `groq_quality_*`.
-Voice limits use `groq_voice_rpm`, `groq_voice_rpd`, `groq_voice_ash`, and `groq_voice_asd`.
+Free profiles ignore custom limit overrides and select known limits by model.
+Custom profile uses `groq.custom_limits.chat`, `groq.custom_limits.quality`, and `groq.custom_limits.voice`.
 Observed `x-ratelimit-*` headers are stored in `/data/bot/rate-limits.json`.
 
 Free organization chat defaults included:
@@ -53,17 +58,37 @@ Speech-to-text free organization defaults:
 
 ### Voice
 
-`groq_voice_model` defaults to `whisper-large-v3-turbo`.
+`groq.voice_model` defaults to `whisper-large-v3-turbo`.
 The transcription request always sends `language=es`.
-`max_audio_seconds` defaults to `120`.
-`chunk_audio=false` rejects longer audio.
+`groq.max_audio_seconds` defaults to `120`.
+`groq.chunk_audio=false` rejects longer audio.
 
 ### Home Assistant
 
-`ha_sensors` lists readable entities.
-`ha_scripts` lists executable scripts.
-Scripts marked `critical` require the user to answer `SI`.
+`home_assistant.read.domains` controls which entity domains can be queried.
+`home_assistant.control.domains` controls which domains can be changed.
+`home_assistant.control.entities.deny` blocks entities even when the domain is allowed.
+`home_assistant.control.entities.allow` restricts control to listed entities when non-empty.
+
+The bot maps commands to safe Home Assistant services:
+
+| Domain | Services |
+|---|---|
+| `switch`, `fan` | `turn_on`, `turn_off` |
+| `light` | `turn_on`, `turn_off`, optional `brightness_pct` |
+| `cover` | `open_cover`, `close_cover`, `stop_cover`, `set_cover_position` |
+| `climate` | `set_temperature`, `set_hvac_mode` |
+| `number`, `input_number` | `set_value` |
+| `select`, `input_select` | `select_option` |
+
+Domains in `home_assistant.critical.always_confirm_domains` require the user to answer `SI`.
+Legacy `ha_sensors` and `ha_scripts` remain supported in memory for existing installs.
 
 ### Recipients
 
-Named aliases used by `/send/{alias}`.
+Named aliases under `whatsapp.recipients` are used by `/send/{alias}`. The default alias is `primary`.
+
+### Optional HACS Integration
+
+`homeassistant-openwa-whatsapp` is compatible for HA -> WhatsApp notifications through `openwa_whatsapp.send_message`.
+It is not required for this add-on. WhatsApp -> HA control is handled by the bot helper through the Home Assistant Supervisor API.

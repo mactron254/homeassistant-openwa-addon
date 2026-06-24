@@ -9,13 +9,14 @@ Home Assistant add-on repository for OpenWA plus a Spanish WhatsApp bot for Home
 - Text menus always work without Groq.
 - Groq is optional and never executes Home Assistant actions directly.
 - Groq defaults to your current free organization limits, with `custom` available for per-project overrides.
-- Critical Home Assistant scripts require literal `SI` confirmation.
+- Home Assistant control uses allowlisted domains/entities, not one script per action.
+- Critical Home Assistant domains require literal `SI` confirmation.
 
 ## Install
 
 1. Add this repository to Home Assistant Add-on Store.
 2. Install **OpenWA Bot ES**.
-3. Configure `allowed_senders`, `ha_sensors`, `ha_scripts`, and optional `groq_api_key`.
+3. Configure `whatsapp.allowed_senders`, `home_assistant`, and optional `groq.api_key`.
 4. Start the add-on.
 5. Open the add-on Web UI or `http://homeassistant.local:2785/` and link WhatsApp from the OpenWA dashboard.
 
@@ -47,4 +48,6 @@ Recommended update flow:
 ## Security
 
 Do not expose OpenWA directly to the public internet without authentication, TLS, and network controls.
-Groq only classifies intent or drafts text; HA execution is allowlisted through add-on options.
+Groq only classifies intent or extracts entity/value data. HA execution is allowlisted through add-on options and mapped to known Home Assistant services.
+
+The optional `homeassistant-openwa-whatsapp` HACS integration remains compatible for HA -> WhatsApp notifications, but this add-on does not depend on it for WhatsApp -> HA control.

@@ -53,13 +53,12 @@ function isAllowedSender(message, allowedSenders) {
 function menuText() {
   return [
     'Menu OpenWA HA',
-    '1. Estado solar',
-    '2. Estado cargador',
-    '3. Carga rapida',
-    '4. Activar cargador',
-    '5. Parar cargador',
-    '6. Modo EVCC',
-    '7. Modo V2C',
+    '1. Resumen casa',
+    '2. Luces encendidas',
+    'Escribe: estado de cocina',
+    'Escribe: enciende cargador',
+    'Escribe: apaga luz salon',
+    'Escribe: pon consigna a 22',
     '9. Ayuda IA',
   ].join('\n');
 }
@@ -67,8 +66,8 @@ function menuText() {
 function routeText(text) {
   const value = String(text || '').trim().toLowerCase();
   if (!value || value === 'menu' || value === 'inicio') return { kind: 'menu' };
-  if (value === '1') return { kind: 'sensor', group: 'solar' };
-  if (value === '2') return { kind: 'sensor', group: 'cargador' };
+  if (value === '1') return { kind: 'home_read', query: '' };
+  if (value === '2') return { kind: 'home_read', query: 'luces encendidas' };
   if (value === '3') return { kind: 'script', name: 'carga_rapida' };
   if (value === '4') return { kind: 'script', name: 'activar_cargador' };
   if (value === '5') return { kind: 'script', name: 'parar_cargador' };
@@ -76,7 +75,38 @@ function routeText(text) {
   if (value === '7') return { kind: 'script', name: 'modo_v2c' };
   if (value === '9') return { kind: 'ai_help' };
   if (value === 'si') return { kind: 'confirm' };
+  const command = parseHomeCommand(value);
+  if (command) return command;
   return { kind: 'unknown' };
+}
+
+function parseHomeCommand(text) {
+  const value = normalizeSearchText(text);
+  const readMatch = value.match(/^(estado|consulta|dime|muestra)( de| del| la| el)? (?<query>.+)$/);
+  if (readMatch?.groups?.query) return { kind: 'home_read', query: readMatch.groups.query };
+  if (value.startsWith('que ') || value.startsWith('cuales ') || value.startsWith('cuantas ')) {
+    return { kind: 'home_read', query: value };
+  }
+
+  const turnOn = value.match(/^(enciende|prende|activa|abre|sube)( el| la| los| las)? (?<query>.+)$/);
+  if (turnOn?.groups?.query) return { kind: 'home_control', action: actionFromVerb(turnOn[1]), query: turnOn.groups.query };
+
+  const turnOff = value.match(/^(apaga|desactiva|cierra|baja|para|deten)( el| la| los| las)? (?<query>.+)$/);
+  if (turnOff?.groups?.query) return { kind: 'home_control', action: actionFromVerb(turnOff[1]), query: turnOff.groups.query };
+
+  const setValue = value.match(/^(pon|establece|ajusta|cambia)( el| la)? (?<query>.+?) (a|en) (?<value>.+)$/);
+  if (setValue?.groups?.query && setValue?.groups?.value) {
+    return { kind: 'home_control', action: 'set', query: setValue.groups.query, value: setValue.groups.value };
+  }
+  return null;
+}
+
+function actionFromVerb(verb) {
+  if (['abre', 'sube'].includes(verb)) return 'open';
+  if (['cierra', 'baja'].includes(verb)) return 'close';
+  if (['para', 'deten'].includes(verb)) return 'stop';
+  if (['apaga', 'desactiva'].includes(verb)) return 'turn_off';
+  return 'turn_on';
 }
 
 function findScript(options, name) {
@@ -89,11 +119,17 @@ function findSensors(options, group) {
 }
 
 function normalizeName(value) {
+  return normalizeSearchText(value)
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function normalizeSearchText(value) {
   return String(value || '')
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 function verifyOpenWaSignature({ rawBody, signature, secret }) {
@@ -107,18 +143,18 @@ function verifyOpenWaSignature({ rawBody, signature, secret }) {
 
 function groqLimits(options, mode) {
   if (mode === 'quality') {
-    if (options.groq_plan === 'free') {
+    if (options.groq_profile !== 'custom' && options.groq_plan !== 'custom') {
       return { ...(FREE_CHAT_LIMITS_BY_MODEL[options.groq_quality_model] || FREE_QUALITY_LIMITS) };
     }
     return configuredQualityLimits(options);
   }
   if (mode === 'voice') {
-    if (options.groq_plan === 'free') {
+    if (options.groq_profile !== 'custom' && options.groq_plan !== 'custom') {
       return { ...(FREE_VOICE_LIMITS_BY_MODEL[options.groq_voice_model] || FREE_VOICE_LIMITS) };
     }
     return configuredVoiceLimits(options);
   }
-  if (options.groq_plan === 'free') {
+  if (options.groq_profile !== 'custom' && options.groq_plan !== 'custom') {
     return { ...(FREE_CHAT_LIMITS_BY_MODEL[options.groq_chat_model] || FREE_CHAT_LIMITS) };
   }
   return configuredChatLimits(options);
@@ -172,9 +208,11 @@ module.exports = {
   isAllowedSender,
   menuText,
   routeText,
+  parseHomeCommand,
   findScript,
   findSensors,
   normalizeName,
+  normalizeSearchText,
   verifyOpenWaSignature,
   groqLimits,
   estimateTokens,

@@ -32,11 +32,21 @@ async function getState(entityId) {
   return haRequest('GET', `/states/${encodeURIComponent(entityId)}`);
 }
 
+async function getStates() {
+  return haRequest('GET', '/states');
+}
+
+async function callService(domain, service, data = {}) {
+  return haRequest('POST', `/services/${encodeURIComponent(domain)}/${encodeURIComponent(service)}`, data);
+}
+
 async function callScript(entityId) {
-  return haRequest('POST', '/services/script/turn_on', { entity_id: entityId });
+  return callService('script', 'turn_on', { entity_id: entityId });
 }
 
 module.exports = {
   getState,
+  getStates,
+  callService,
   callScript,
 };

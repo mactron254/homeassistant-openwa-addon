@@ -1,12 +1,20 @@
 # Changelog
 
+## 0.4.0
+
+- Replaced flat Groq options with grouped `groq` profile configuration.
+- Replaced sensor/script-only HA config with entity/domain read and control allowlists.
+- Added safe Home Assistant service mapping for switch, light, cover, climate, number, select, input helpers, and fan.
+- Kept legacy option compatibility for existing installs.
+- Documented optional HACS integration compatibility for HA -> WhatsApp notifications.
+
 ## 0.3.0
 
 - Added Spanish Home Assistant WhatsApp bot helper.
 - Added Groq chat and Whisper voice transcription with local free organization rate limits.
 - Added `ENTRYPOINT []` and root-controlled startup for `/data/openwa` permissions.
 - Defaulted WhatsApp engine to `baileys` with `whatsapp-web.js` fallback.
-- Pinned OpenWA image to `ghcr.io/rmyndharis/openwa:v0.7.2`.
+- Defaulted OpenWA image to `ghcr.io/rmyndharis/openwa:latest`.
 
 ## 0.2.0
 
