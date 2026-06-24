@@ -31,7 +31,7 @@ options:
   api_master_key: ""
   openwa_api_key: ""
   session_id: ""
-  openwa_image: "ghcr.io/rmyndharis/openwa:v0.7.2"
+  openwa_image: "ghcr.io/rmyndharis/openwa:latest"
   log_level: "info"
   engine_type: "baileys"
   allowed_senders:

@@ -35,7 +35,7 @@ The webhook endpoint verifies `X-OpenWA-Signature`.
 ## Updates
 
 This fork tracks `nomi25home/homeassistant-openwa-addon` as `upstream`.
-The OpenWA base image is pinned in `openwa/Dockerfile` (`ghcr.io/rmyndharis/openwa:v0.7.2` by default), not `latest`.
+The OpenWA base image defaults to `ghcr.io/rmyndharis/openwa:latest` because the previously documented `v0.7.2` tag is not published in GHCR. For production, pin this to a real upstream tag or digest when one is available.
 
 Recommended update flow:
 
