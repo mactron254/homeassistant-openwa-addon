@@ -36,6 +36,12 @@ async function getStates() {
   return haRequest('GET', '/states');
 }
 
+async function getHistory(entityIds, startIso) {
+  const ids = Array.isArray(entityIds) ? entityIds.filter(Boolean).join(',') : String(entityIds || '');
+  const query = ids ? `?filter_entity_id=${encodeURIComponent(ids)}&minimal_response` : '?minimal_response';
+  return haRequest('GET', `/history/period/${encodeURIComponent(startIso)}${query}`);
+}
+
 async function callService(domain, service, data = {}) {
   return haRequest('POST', `/services/${encodeURIComponent(domain)}/${encodeURIComponent(service)}`, data);
 }
@@ -47,6 +53,7 @@ async function callScript(entityId) {
 module.exports = {
   getState,
   getStates,
+  getHistory,
   callService,
   callScript,
 };

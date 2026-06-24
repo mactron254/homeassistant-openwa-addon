@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { normalizeGroq, normalizeHomeAssistant, normalizeWhatsapp } = require('../src/options');
+const { normalizeGroq, normalizeHomeAssistant, normalizeAssistant, normalizeWhatsapp } = require('../src/options');
 
 test('normalizes new Groq config', () => {
   const groq = normalizeGroq({
@@ -52,6 +52,22 @@ test('normalizes Home Assistant control config', () => {
   assert.deepEqual(config.control.entities.deny, ['switch.bad']);
   assert.deepEqual(config.control.entities.allow, ['switch.good']);
   assert.equal(config.critical.timeout_seconds, 120);
+});
+
+test('normalizes assistant config', () => {
+  const config = normalizeAssistant({
+    assistant: {
+      knowledge_csv: 'my-knowledge.csv',
+      commands_json: 'my-commands.json',
+      max_tool_rounds: 6,
+      enable_history: false,
+    },
+  });
+
+  assert.equal(config.knowledge_csv, 'my-knowledge.csv');
+  assert.equal(config.commands_json, 'my-commands.json');
+  assert.equal(config.max_tool_rounds, 6);
+  assert.equal(config.enable_history, false);
 });
 
 test('normalizes WhatsApp recipients map and legacy allowed senders', () => {

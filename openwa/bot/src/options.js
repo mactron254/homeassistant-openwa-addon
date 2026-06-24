@@ -6,6 +6,7 @@ const path = require('node:path');
 const OPTIONS_PATH = process.env.OPTIONS_PATH || '/data/options.json';
 const OPENWA_DATA_DIR = process.env.OPENWA_DATA_DIR || '/data/openwa';
 const BOT_DATA_DIR = process.env.BOT_DATA_DIR || '/data/bot';
+const ADDON_CONFIG_DIR = process.env.ADDON_CONFIG_DIR || '/config';
 
 function readJson(file, fallback) {
   try {
@@ -20,6 +21,7 @@ function loadOptions() {
   const groq = normalizeGroq(raw);
   const homeAssistant = normalizeHomeAssistant(raw);
   const whatsapp = normalizeWhatsapp(raw);
+  const assistant = normalizeAssistant(raw);
   const options = {
     api_master_key: raw.api_master_key || '',
     openwa_api_key: raw.openwa_api_key || '',
@@ -28,6 +30,7 @@ function loadOptions() {
     engine_type: raw.engine_type || 'baileys',
     whatsapp,
     home_assistant: homeAssistant,
+    assistant,
     groq,
     allowed_senders: whatsapp.allowed_senders,
     recipients: whatsapp.recipients,
@@ -51,11 +54,25 @@ function loadOptions() {
     groq_voice_asd: groq.custom_limits.voice.asd,
     max_audio_seconds: groq.max_audio_seconds,
     chunk_audio: groq.chunk_audio,
+    assistant_knowledge_csv: assistant.knowledge_csv,
+    assistant_commands_json: assistant.commands_json,
+    assistant_max_tool_rounds: assistant.max_tool_rounds,
+    assistant_enable_history: assistant.enable_history,
     critical_confirmation_timeout_seconds: homeAssistant.critical.timeout_seconds,
     ha_sensors: legacySensorsFromHomeAssistant(homeAssistant, raw),
     ha_scripts: Array.isArray(raw.ha_scripts) ? raw.ha_scripts : [],
   };
   return options;
+}
+
+function normalizeAssistant(raw) {
+  const source = raw.assistant && typeof raw.assistant === 'object' ? raw.assistant : {};
+  return {
+    knowledge_csv: stringOption(source.knowledge_csv ?? raw.assistant_knowledge_csv, 'knowledge.csv'),
+    commands_json: stringOption(source.commands_json ?? raw.assistant_commands_json, 'commands.json'),
+    max_tool_rounds: numberOption(source.max_tool_rounds ?? raw.assistant_max_tool_rounds, 4),
+    enable_history: boolOption(source.enable_history ?? raw.assistant_enable_history, true),
+  };
 }
 
 function normalizeGroq(raw) {
@@ -172,6 +189,10 @@ function numberOption(value, fallback) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
+function stringOption(value, fallback) {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
 function readSessionId() {
   try {
     return fs.readFileSync(path.join(BOT_DATA_DIR, 'session-id'), 'utf8').trim();
@@ -204,6 +225,7 @@ module.exports = {
   OPTIONS_PATH,
   OPENWA_DATA_DIR,
   BOT_DATA_DIR,
+  ADDON_CONFIG_DIR,
   loadOptions,
   readSessionId,
   saveSessionId,
@@ -211,5 +233,6 @@ module.exports = {
   helperAuthKey,
   normalizeGroq,
   normalizeHomeAssistant,
+  normalizeAssistant,
   normalizeWhatsapp,
 };

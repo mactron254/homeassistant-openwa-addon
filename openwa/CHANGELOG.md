@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- Replaced simple Groq classification with local tool-calling agent flow.
+- Added semantic Home Assistant catalog from auto-discovery plus `/config/knowledge.csv`.
+- Added `/config/commands.json` for predefined EVCC/V2C/SAJ and battery-mode actions.
+- Added local tools for HA search, state read, history summary, safe entity control, and predefined commands.
+- Stored critical pending actions as exact entity/action lists before `SI` confirmation.
+
 ## 0.4.0
 
 - Replaced flat Groq options with grouped `groq` profile configuration.

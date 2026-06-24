@@ -8,6 +8,7 @@ const test = require('node:test');
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'openwa-bot-'));
 process.env.BOT_DATA_DIR = tmp;
+process.env.ADDON_CONFIG_DIR = tmp;
 
 const ha = require('../src/ha-client');
 const { HomeAssistantBot } = require('../src/bot');
@@ -144,7 +145,7 @@ test('reads allowed entity states', async () => {
   assert.equal(await bot.handleMessage({ from: '34600111222@c.us', body: 'estado de solar' }), 'Solar: 4200 W');
 });
 
-test('answers natural energy questions with grouped HA sensors', async () => {
+test('delegates natural home questions to Groq agent tools', async () => {
   ha.getStates = async () => [
     { entity_id: 'sensor.solar_power', state: '4200', attributes: { friendly_name: 'Potencia placas', unit_of_measurement: 'W', device_class: 'power' } },
     { entity_id: 'sensor.solar_energy_today', state: '18.4', attributes: { friendly_name: 'Produccion solar hoy', unit_of_measurement: 'kWh', device_class: 'energy' } },
@@ -153,15 +154,48 @@ test('answers natural energy questions with grouped HA sensors', async () => {
     { entity_id: 'sensor.temperature', state: '21', attributes: { friendly_name: 'Temperatura salon', unit_of_measurement: 'C' } },
   ];
 
-  const bot = new HomeAssistantBot({ options: baseOptions(), openwa: {}, groq: { enabled: () => false } });
+  const groq = {
+    enabled: () => true,
+    runAgent: async (text, tools) => {
+      assert.equal(text, 'como va la energia hoy');
+      const search = await tools.searchHome({ query: 'solar bateria consumo', intent: 'read', limit: 4 });
+      const states = await tools.getHomeState({ entity_ids: search.entities.map(entity => entity.entity_id) });
+      return { response: `Resumen: ${states.states.map(state => `${state.name} ${state.state}${state.unit ? ` ${state.unit}` : ''}`).join(', ')}` };
+    },
+  };
+  const bot = new HomeAssistantBot({ options: baseOptions(), openwa: {}, groq });
   const response = await bot.handleMessage({ from: '34600111222@c.us', body: 'como va la energia hoy' });
 
-  assert.match(response, /^Energia ahora:/);
-  assert.match(response, /Planta solar: .*Potencia placas: 4200 W/);
-  assert.match(response, /Produccion solar hoy: 18.4 kWh/);
-  assert.match(response, /Consumo: Consumo casa: 1200 W/);
-  assert.match(response, /Bateria: Bateria: 76 %/);
+  assert.match(response, /^Resumen:/);
+  assert.match(response, /Potencia placas 4200 W/);
+  assert.match(response, /Consumo casa 1200 W/);
   assert.doesNotMatch(response, /Temperatura salon/);
+});
+
+test('runs critical predefined command from commands.json after SI', async () => {
+  fs.writeFileSync(path.join(tmp, 'commands.json'), JSON.stringify([
+    {
+      id: 'saj_battery_self_use',
+      aliases: ['modo autoconsumo bateria', 'poner saj en autoconsumo'],
+      description: 'Cambia SAJ AS1 a modo autoconsumo',
+      critical: true,
+      actions: [{ entity_id: 'select.saj_work_mode', action: 'select_option', value: 'Self Use' }],
+    },
+  ]));
+  const calls = [];
+  ha.getStates = async () => [
+    { entity_id: 'select.saj_work_mode', state: 'Backup', attributes: { friendly_name: 'Modo bateria SAJ', options: ['Backup', 'Self Use'] } },
+  ];
+  ha.callService = async (domain, service, data) => calls.push({ domain, service, data });
+
+  const bot = new HomeAssistantBot({ options: baseOptions(), openwa: {}, groq: { enabled: () => false } });
+
+  assert.match(await bot.handleMessage({ from: '34600111222@c.us', body: 'poner saj en autoconsumo' }), /Responde SI/);
+  assert.deepEqual(calls, []);
+  assert.match(await bot.handleMessage({ from: '34600111222@c.us', body: 'SI' }), /Ejecutado: Cambia SAJ AS1/);
+  assert.deepEqual(calls, [
+    { domain: 'select', service: 'select_option', data: { entity_id: 'select.saj_work_mode', option: 'Self Use' } },
+  ]);
 });
 
 function baseOptions() {
@@ -169,6 +203,12 @@ function baseOptions() {
     critical_confirmation_timeout_seconds: 300,
     ha_sensors: [],
     ha_scripts: [],
+    assistant: {
+      knowledge_csv: 'knowledge.csv',
+      commands_json: 'commands.json',
+      max_tool_rounds: 4,
+      enable_history: true,
+    },
     home_assistant: {
       read: {
         mode: 'allowed_domains',

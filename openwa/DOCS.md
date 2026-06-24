@@ -63,6 +63,47 @@ The transcription request always sends `language=es`.
 `groq.max_audio_seconds` defaults to `120`.
 `groq.chunk_audio=false` rejects longer audio.
 
+### Assistant
+
+`assistant.knowledge_csv` defaults to `knowledge.csv` under `/config`.
+`assistant.commands_json` defaults to `commands.json` under `/config`.
+`assistant.max_tool_rounds` limits Groq local-tool loops.
+`assistant.enable_history=true` enables `get_home_history` over the HA history API.
+
+`knowledge.csv` augments auto-discovered Home Assistant entities:
+
+```csv
+entity_id,friendly_name,area,zone,aliases,capabilities,priority,critical,description
+sensor.solar_power,Potencia placas,energia,tejado,"placas;planta;solar",read,10,false,Generacion solar actual
+number.evcc_limit,Limite EVCC,coche,garaje,"cargador;evcc;amperios","read;control",8,true,Limite de carga del coche
+```
+
+`commands.json` defines safe multi-step or named actions:
+
+```json
+[
+  {
+    "id": "saj_battery_self_use",
+    "aliases": ["modo autoconsumo bateria", "poner saj en autoconsumo"],
+    "description": "Cambia SAJ AS1 a modo autoconsumo",
+    "critical": true,
+    "actions": [
+      {"entity_id": "select.saj_work_mode", "action": "select_option", "value": "Self Use"}
+    ]
+  }
+]
+```
+
+Groq uses local tool calling with these helper tools:
+
+| Tool | Purpose |
+|---|---|
+| `search_home` | Find semantic entities and predefined commands. |
+| `get_home_state` | Read current HA states. |
+| `get_home_history` | Summarize HA history when enabled. |
+| `control_entity` | Execute one safe entity action. |
+| `run_command` | Execute a predefined command from `commands.json`. |
+
 ### Home Assistant
 
 `home_assistant.read.domains` controls which entity domains can be queried.

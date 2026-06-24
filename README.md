@@ -7,17 +7,18 @@ Home Assistant add-on repository for OpenWA plus a Spanish WhatsApp bot for Home
 - OpenWA API and dashboard on port `2785`.
 - Bot helper API on port `2786`.
 - Text menus always work without Groq.
-- Groq is optional and never executes Home Assistant actions directly.
+- Groq runs as a local-tool agent inside the helper bot and never executes Home Assistant actions directly.
 - Groq defaults to your current free organization limits, with `custom` available for per-project overrides.
 - Home Assistant control uses allowlisted domains/entities, not one script per action.
-- Natural Spanish questions can read HA states, for example `como va la energia hoy`, `que estan generando las placas`, or `que luces estan encendidas`.
+- Natural Spanish questions use a semantic HA catalog from auto-discovery plus optional `/config/knowledge.csv`.
+- Predefined EVCC/V2C/SAJ actions can live in `/config/commands.json`.
 - Critical Home Assistant domains require literal `SI` confirmation.
 
 ## Install
 
 1. Add this repository to Home Assistant Add-on Store.
 2. Install **OpenWA Bot ES**.
-3. Configure `whatsapp.allowed_senders`, `home_assistant`, and optional `groq.api_key`.
+3. Configure `whatsapp.allowed_senders`, `home_assistant`, optional `groq.api_key`, and optional `assistant` files.
 4. Start the add-on.
 5. Open the add-on Web UI or `http://homeassistant.local:2785/` and link WhatsApp from the OpenWA dashboard.
 
@@ -49,6 +50,6 @@ Recommended update flow:
 ## Security
 
 Do not expose OpenWA directly to the public internet without authentication, TLS, and network controls.
-Groq only classifies intent or extracts entity/value data. HA execution is allowlisted through add-on options and mapped to known Home Assistant services.
+Groq can request local tools such as `search_home`, `get_home_state`, `get_home_history`, `control_entity`, and `run_command`. The helper bot executes those tools locally, validates allowlists, and asks for `SI` on sensitive actions.
 
 The optional `homeassistant-openwa-whatsapp` HACS integration remains compatible for HA -> WhatsApp notifications, but this add-on does not depend on it for WhatsApp -> HA control.

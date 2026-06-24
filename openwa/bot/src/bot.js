@@ -15,6 +15,7 @@ const {
 } = require('./core');
 const { BOT_DATA_DIR } = require('./options');
 const ha = require('./ha-client');
+const { ToolRegistry } = require('./tool-registry');
 const { prepareAudio, cleanupAudio } = require('./audio');
 
 class HomeAssistantBot {
@@ -23,6 +24,10 @@ class HomeAssistantBot {
     this.openwa = openwa;
     this.groq = groq;
     this.pendingPath = path.join(BOT_DATA_DIR, 'pending-confirmations.json');
+  }
+
+  createToolRegistry() {
+    return new ToolRegistry(this.options);
   }
 
   async handleOpenWaPayload(payload) {
@@ -45,6 +50,8 @@ class HomeAssistantBot {
 
     if (routeText(text).kind === 'confirm' && pending) {
       this.clearPending(sender);
+      if (pending.type === 'tool_control') return this.executePendingControl(pending);
+      if (pending.type === 'command_actions') return this.executePendingCommand(pending);
       if (pending.type === 'home_control') return this.executeHomeControl(pending.route, { confirmed: true });
       return this.executeScript(pending.scriptName);
     }
@@ -57,12 +64,25 @@ class HomeAssistantBot {
     if (fixedRoute.kind !== 'unknown') return this.executeRoute(fixedRoute, sender);
 
     if (!this.groq.enabled()) {
-      return `${menuText()}\n\nIA no configurada. Usa numero de menu.`;
+      return this.handleWithoutAi(text, sender);
     }
 
-    const classified = await this.groq.classify(text);
-    if (classified.error) return classified.error;
-    return this.executeAiAction(classified.action, sender);
+    const tools = this.createToolRegistry();
+    const result = await this.groq.runAgent(text, tools);
+    if (result.pending) {
+      this.setPending(sender, result.pending);
+      return `Accion critica: ${result.pending.description}. Responde SI para confirmar.`;
+    }
+    if (result.response) return result.response;
+    if (result.error) {
+      if (result.error !== LIMIT_MESSAGE && typeof this.groq.classify === 'function') {
+        const classified = await this.groq.classify(text);
+        if (classified.error) return classified.error;
+        return this.executeAiAction(classified.action, sender);
+      }
+      return result.error;
+    }
+    return menuText();
   }
 
   async handleAudio(message) {
@@ -108,6 +128,25 @@ class HomeAssistantBot {
     return this.executeRoute(mapped[action] || { kind: 'menu' }, sender);
   }
 
+  async handleWithoutAi(text, sender) {
+    const tools = this.createToolRegistry();
+    const command = tools.findCommandByText(text);
+    if (command) {
+      const result = await tools.executeCommand(command.id);
+      const pending = tools.consumePending();
+      if (pending) {
+        this.setPending(sender, pending);
+        return `Accion critica: ${pending.description}. Responde SI para confirmar.`;
+      }
+      return result.ok ? `Ejecutado: ${command.description || command.id}` : result.error;
+    }
+
+    const search = await tools.searchHome({ query: text, intent: 'read', limit: 8 });
+    if (!search.entities.length) return `${menuText()}\n\nIA no configurada. Usa menu, comandos exactos o alias configurados.`;
+    const states = await tools.getHomeState({ entity_ids: search.entities.map(entity => entity.entity_id) });
+    return states.states.map(formatToolState).join('\n');
+  }
+
   async executeRoute(route, sender) {
     if (route.kind === 'menu' || route.kind === 'ai_help') return menuText();
     if (route.kind === 'home_read') return this.reportHome(route.query);
@@ -144,38 +183,21 @@ class HomeAssistantBot {
   }
 
   async reportHome(query = '') {
-    const states = await this.allowedStates('read');
-    if (isEnergyOverviewQuery(query)) return this.reportEnergy(states, query);
-    const matches = this.findStateMatches(states, query);
-    if (!matches.length) return `No encuentro entidades permitidas para: ${query || 'casa'}.`;
-    const filtered = filterReadMatches(matches, query).slice(0, 12);
+    const tools = this.createToolRegistry();
+    const search = await tools.searchHome({ query, intent: 'read', limit: 12 });
+    const entityIds = search.entities.map(entity => entity.entity_id);
+    if (!entityIds.length) return `No encuentro entidades permitidas para: ${query || 'casa'}.`;
+    const states = await tools.getHomeState({ entity_ids: entityIds });
+    const filtered = filterToolReadMatches(states.states, query).slice(0, 12);
     if (!filtered.length) return `No hay resultados para: ${query}.`;
-    return filtered.map(formatState).join('\n');
-  }
-
-  reportEnergy(states, query = '') {
-    const energyStates = states
-      .filter(isEnergyState)
-      .map(state => ({ state, score: energyScore(state, query) }))
-      .filter(item => item.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10)
-      .map(item => item.state);
-
-    if (!energyStates.length) {
-      return 'No encuentro sensores de energia permitidos. Revisa dominios de lectura o nombres de sensores HA.';
-    }
-
-    const lines = ['Energia ahora:'];
-    for (const group of energyGroups(energyStates)) {
-      lines.push(`${group.label}: ${group.states.map(formatState).join(' | ')}`);
-    }
-    return lines.join('\n');
+    return filtered.map(formatToolState).join('\n');
   }
 
   async executeHomeControl(route, context = {}) {
     const states = await this.allowedStates('control');
-    const match = this.findStateMatches(states, route.query)[0];
+    const match = route.entity_id
+      ? states.find(state => state.entity_id === route.entity_id)
+      : this.findStateMatches(states, route.query)[0];
     if (!match) return `No encuentro entidad controlable: ${route.query}.`;
     const command = serviceForRoute(match, route);
     if (!command) return `No se puede ejecutar ${route.action} sobre ${match.entity_id}.`;
@@ -252,6 +274,16 @@ class HomeAssistantBot {
     return `Ejecutado: ${script.name}`;
   }
 
+  async executePendingControl(pending) {
+    const result = await this.createToolRegistry().executeControl(pending.action, { confirmed: true });
+    return result.ok ? result.message : result.error;
+  }
+
+  async executePendingCommand(pending) {
+    const result = await this.createToolRegistry().executeCommandActions(pending.actions || []);
+    return result.ok ? `Ejecutado: ${pending.description}` : result.error;
+  }
+
   pendingFor(sender) {
     const all = this.readPending();
     const item = all[sender];
@@ -266,7 +298,12 @@ class HomeAssistantBot {
 
   setPending(sender, scriptName) {
     const all = this.readPending();
-    if (typeof scriptName === 'object') {
+    if (typeof scriptName === 'object' && scriptName.type) {
+      all[sender] = {
+        ...scriptName,
+        expiresAt: Date.now() + this.options.critical_confirmation_timeout_seconds * 1000,
+      };
+    } else if (typeof scriptName === 'object') {
       all[sender] = {
         type: 'home_control',
         route: scriptName,
@@ -301,14 +338,6 @@ class HomeAssistantBot {
   }
 }
 
-function isEnergyOverviewQuery(query) {
-  const value = normalizeSearchText(query);
-  if (/\b(energia|planta|placa|placas|fotovoltaic|produccion|generando|genera|consume|consumo|bateria|red)\b/.test(value)) {
-    return true;
-  }
-  return value.includes('solar') && /\b(hoy|ahora|va|generando|genera|produce|produccion)\b/.test(value);
-}
-
 function domainFromEntity(entityId) {
   return String(entityId || '').split('.')[0];
 }
@@ -322,48 +351,17 @@ function formatState(state) {
   return `${friendlyName(state)}: ${state.state}${unit}`;
 }
 
-function isEnergyState(state) {
-  if (!['sensor', 'binary_sensor'].includes(domainFromEntity(state.entity_id))) return false;
-  return energyScore(state, '') > 0;
+function formatToolState(state) {
+  const unit = state.unit ? ` ${state.unit}` : '';
+  const place = [state.area, state.zone].filter(Boolean).join('/');
+  const suffix = place ? ` (${place})` : '';
+  return `${state.name || state.entity_id}: ${state.state}${unit}${suffix}`;
 }
 
-function energyScore(state, query = '') {
-  const text = normalizeSearchText(`${state.entity_id} ${friendlyName(state)} ${state.attributes?.device_class || ''} ${state.attributes?.unit_of_measurement || ''}`);
-  const queryText = normalizeSearchText(query);
-  let score = 0;
-  for (const token of ENERGY_TOKENS) {
-    if (text.includes(token)) score += 4;
-  }
-  if (/\b(w|kw|kwh|wh)\b/.test(text)) score += 2;
-  if (text.includes('power') || text.includes('energy')) score += 2;
-  if (queryText.includes('hoy') && (text.includes('today') || text.includes('daily') || text.includes('dia') || text.includes('diaria'))) score += 6;
-  return score;
-}
-
-function energyGroups(states) {
-  const buckets = [
-    { label: 'Planta solar', test: state => hasEnergyWord(state, ['solar', 'placa', 'pv', 'fotovoltaic', 'produccion', 'generated', 'generation']) },
-    { label: 'Consumo', test: state => hasEnergyWord(state, ['consumo', 'consume', 'load', 'casa', 'home']) },
-    { label: 'Bateria', test: state => hasEnergyWord(state, ['bateria', 'battery', 'soc']) },
-    { label: 'Red', test: state => hasEnergyWord(state, ['red', 'grid', 'import', 'export']) },
-  ];
-  const used = new Set();
-  const groups = [];
-  for (const bucket of buckets) {
-    const matches = states.filter(state => !used.has(state.entity_id) && bucket.test(state)).slice(0, 3);
-    if (matches.length) {
-      matches.forEach(state => used.add(state.entity_id));
-      groups.push({ label: bucket.label, states: matches });
-    }
-  }
-  const others = states.filter(state => !used.has(state.entity_id)).slice(0, 3);
-  if (others.length) groups.push({ label: 'Otros', states: others });
-  return groups;
-}
-
-function hasEnergyWord(state, words) {
-  const text = normalizeSearchText(`${state.entity_id} ${friendlyName(state)} ${state.attributes?.device_class || ''}`);
-  return words.some(word => text.includes(word));
+function filterToolReadMatches(states, query) {
+  const normalized = normalizeSearchText(query);
+  if (!normalized.includes('encendid')) return states;
+  return states.filter(state => ['on', 'open', 'heat', 'cool'].includes(String(state.state).toLowerCase()));
 }
 
 function filterReadMatches(states, query) {
@@ -474,6 +472,5 @@ function parsePercent(value) {
 }
 
 const STOP_WORDS = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'un', 'una', 'que', 'esta', 'estan', 'hay', 'casa']);
-const ENERGY_TOKENS = ['energia', 'energy', 'solar', 'placa', 'planta', 'fotovoltaic', 'produccion', 'generation', 'generated', 'consumo', 'consume', 'bateria', 'battery', 'grid', 'red', 'power'];
 
 module.exports = { HomeAssistantBot };

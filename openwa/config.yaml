@@ -1,5 +1,5 @@
 name: OpenWA Bot ES
-version: "0.4.0"
+version: "0.5.0"
 slug: openwa
 description: OpenWA WhatsApp gateway with Spanish Home Assistant bot, Groq chat, and voice transcription
 url: https://github.com/mactron254/homeassistant-openwa-addon
@@ -63,6 +63,11 @@ options:
         rpd: 2000
         ash: 7200
         asd: 28800
+  assistant:
+    knowledge_csv: "knowledge.csv"
+    commands_json: "commands.json"
+    max_tool_rounds: 4
+    enable_history: true
   home_assistant:
     read:
       mode: "allowed_domains"
@@ -136,6 +141,11 @@ schema:
         rpd: int(0,)
         ash: int(0,)
         asd: int(0,)
+  assistant:
+    knowledge_csv: str
+    commands_json: str
+    max_tool_rounds: int(1,)
+    enable_history: bool
   home_assistant:
     read:
       mode: list(allowed_domains)

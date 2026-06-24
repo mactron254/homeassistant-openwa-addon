@@ -44,9 +44,9 @@ test('free Groq plan uses current organization limits per model', () => {
   assert.deepEqual(qwen, FREE_CHAT_LIMITS_BY_MODEL['qwen/qwen3-32b']);
 });
 
-test('routes natural energy questions to Home Assistant read', () => {
-  assert.deepEqual(routeText('como va la energia hoy'), { kind: 'home_read', query: 'como va la energia hoy' });
-  assert.deepEqual(routeText('que estan generando las placas'), { kind: 'home_read', query: 'que estan generando las placas' });
+test('leaves natural questions for Groq agent', () => {
+  assert.deepEqual(routeText('como va la energia hoy'), { kind: 'unknown' });
+  assert.deepEqual(routeText('que estan generando las placas'), { kind: 'unknown' });
 });
 
 test('free_balanced Groq profile uses current organization limits per model', () => {
