@@ -1,4 +1,4 @@
-ARG BUILD_FROM=ghcr.io/rmyndharis/openwa:v0.7.2
+ARG BUILD_FROM=ghcr.io/rmyndharis/openwa:lastest
 FROM ${BUILD_FROM}
 
 USER root
